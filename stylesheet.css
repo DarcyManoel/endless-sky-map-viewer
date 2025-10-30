@@ -1,0 +1,155 @@
+*{
+	-webkit-user-select:none;
+	color:#9f9f9f;
+	font-family:Ubuntu;
+	margin:0;
+	outline:none;
+	overflow:hidden;
+	user-select:none;
+}
+body{
+	background-color:#000;
+}
+canvas{
+	animation:blurOff 1s;
+	left:0;
+	position:absolute;
+	top:0;
+	width:100vw;
+}
+label{
+	cursor:pointer;
+	font-size:16px;
+	position:absolute;
+}
+.blocked,
+.blocked label{
+	animation:none;
+	color:#333;
+	pointer-events:none;
+}
+.dark{
+	animation:none;
+	color:#555;
+}
+.hiddenPerm,.hiddenTemp{
+	display:none;
+}
+#loadFiles{
+	font-size:32px;
+	left:20px;
+	top:10px;
+}
+#loadFiles:hover{
+	color:#eee;
+}
+/*	Options	*/
+#optionsMenus{
+	background:rgba(0,0,0,.6);
+	height:100%;
+	position:absolute;
+	width:100%;
+	z-index:100;
+}
+#options1,#options2,#options3{
+	backdrop-filter:blur(10px);
+	background-color:rgba(255,255,255,.1);
+	border-radius:30px;
+	height:calc(100% - 140px);
+	padding:10px;
+	padding-top:60px;
+	position:absolute;
+	top:40px;
+	width:calc(33% - 100px);
+}
+#options1{
+	left:80px;
+}
+#options2{
+	left:50%;
+	transform:translate(-50%);
+}
+#options3{
+	right:80px;
+}
+.optionsTitle{
+	font-size:32px;
+	left:50%;
+	position:absolute;
+	top:10px;
+	transform:translate(-50%);
+}
+.optionsGroup{
+	padding:5px 0 10px 20px;
+}
+/*	Hotkey indicators	*/
+/*		General	*/
+.hotkeyIndicator{
+	border-radius:40px 0 0 40px;
+	border:3px solid #333;
+	color:#333;
+	cursor:pointer;
+	height:40px;
+	overflow:visible;
+	position:absolute;
+	right:-160px;
+	transition:border .5s,color .5s;
+	width:200px;
+}
+.hotkey{
+	color:inherit;
+	font-size:32px;
+	left:14px;
+	position:absolute;
+}
+.descriptor{
+	color:inherit;
+	pointer-events:none;
+	position:absolute;
+	right:220px;
+	text-align:right;
+	top:10px;
+	transition:opacity .5s linear 1s;
+	width:1000px;
+}
+.hotkeyIndicator .descriptor{
+	opacity:0;
+}
+.hotkeyIndicator:hover .descriptor{
+	opacity:1;
+	transition:opacity .5s;
+}
+.activeMode{
+	border:3px solid #9f9f9f;
+	color:#9f9f9f;
+}
+/*	System Details	*/
+#selectedCount{
+	left:20px;
+	top:130px;
+}
+#selectedHabitation{
+	left:20px;
+	top:160px;
+}
+#systemTrade{
+	left:20px;
+	bottom:20px;
+}
+table{
+	border-spacing:0;
+	font-size:80%;
+}
+td{
+	min-width:40px;
+	padding-right:15px;
+}
+th{
+	text-align:left;
+}
+/*	Animations	*/
+/*		Blur	*/
+@keyframes blurOff{
+	0%{filter:blur(3px);}
+	100%{filter:blur(0px);}
+}
