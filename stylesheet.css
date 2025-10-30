@@ -1,14 +1,22 @@
 *{
 	-webkit-user-select:none;
 	color:#9f9f9f;
-	font-family:Ubuntu;
 	margin:0;
 	outline:none;
 	overflow:hidden;
 	user-select:none;
 }
+@font-face{
+	font-family:UbuntuSans;
+	src:url(fonts/UbuntuSans-Regular.ttf);
+}
+@font-face{
+	font-family:UbuntuSansBold;
+	src:url(fonts/UbuntuSans-SemiBold.ttf);
+}
 body{
 	background-color:#000;
+	font-family:UbuntuSans;
 }
 canvas{
 	animation:blurOff 1s;
