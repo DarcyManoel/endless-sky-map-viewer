@@ -683,8 +683,9 @@ function mouseMove(event){
 	if(isBlockedInteraction){
 		return
 	}
-	xCoordinate=Math.round((event.offsetX*3-canvas.width*1.5)*scale)
-	yCoordinate=Math.round((event.offsetY*3-canvas.height*1.5)*scale)
+	let rect=canvas.getBoundingClientRect() // get canvas position and size in CSS pixels
+	xCoordinate=Math.round(((event.clientX-rect.left)*(canvas.width*3/rect.width)-canvas.width*1.5)*scale) // convert cursor X from CSS pixels to canvas space
+	yCoordinate=Math.round(((event.clientY-rect.top)*(canvas.height*3/rect.height)-canvas.height*1.5)*scale) // convert cursor Y from CSS pixels to canvas space
 	for(i1=0;i1<systems.length;i1++){
 		if(Math.dist(systems[i1][1][0]-galaxyPosition[0],systems[i1][1][1]-galaxyPosition[1],xCoordinate,yCoordinate)<distance||i1==0){
 			target=i1
