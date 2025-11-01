@@ -25,7 +25,7 @@ function initialize(){
 	highlightHotkeys()
 	canvasContext.scale((1/3)/scale,(1/3)/scale)
 	overlayContext.scale((1/3)/scale,(1/3)/scale)
-	drawGalaxy()
+	drawGalaxies()
 }
 var systems=[]
 var governments=[]
@@ -76,7 +76,7 @@ function uploadFiles(that){
 						break parseLine
 					}else if(lines[i2].startsWith(`galaxy `)){
 						//	Define
-						galaxies.push([lines[i2].slice(7).replaceAll(` `,``).replaceAll(`"`,``).replaceAll(`\r`,``),[]])
+						galaxies.push([lines[i2].slice(7).replaceAll(` `,``).replaceAll(`"`,``).replaceAll(`\r`,``),[],[]])
 						for(i3=i2+1;i3<lines.length,lines[i3].startsWith(`\t`);i3++){
 							defineGalaxy()
 						}
@@ -103,6 +103,9 @@ function uploadFiles(that){
 function defineGalaxy(){
 	if(lines[i3].startsWith(`\tpos `)){
 		galaxies[galaxies.length-1][1]=lines[i3].slice(5).replaceAll(`"`,``).replaceAll(`\r`,``).split(` `)
+	}
+	if(lines[i3].startsWith(`\tsprite `)){
+		galaxies[galaxies.length-1][2]=lines[i3].slice(8).replaceAll(`"`,``).replaceAll(`\r`,``).split(`/`).at(-1)
 	}
 }
 function defineSystem(override){
@@ -200,7 +203,7 @@ const tradeTemplate=[`Food`,`Clothing`,`Metal`,`Plastic`,`Equipment`,`Medical`,`
 var tradeAverage=[[`Food`,0,0],[`Clothing`,0,0],[`Metal`,0,0],[`Plastic`,0,0],[`Equipment`,0,0],[`Medical`,0,0],[`Industrial`,0,0],[`Electronics`,0,0],[`Heavy Metals`,0,0],[`Luxury Goods`,0,0]]
 function curateData(){
 	//	Galaxies cyclable
-	cyclableGalaxies=[galaxies[0]]
+	cyclableGalaxies=[galaxies.find(galaxy=>galaxy[0]===`MilkyWay`)]
 	for(i1=0;i1<galaxies.length;i1++){
 		var galaxyTooClose=0
 		for(i2=0;i2<cyclableGalaxies.length;i2++){
@@ -283,7 +286,16 @@ function curateData(){
 			}
 		}
 	}
-	drawGalaxy()
+	//	begin rendering after galaxy images are loaded
+	for(let galaxy of cyclableGalaxies){
+		let galaxySprite=new Image()
+		galaxySprite.src=`galaxies/${galaxy[2]}.jpg`
+		galaxySprite.onload=function(){
+			galaxiesLoaded++
+			if(galaxiesLoaded===cyclableGalaxies.length)drawGalaxies()
+		}
+		galaxyImages.push({galaxySprite,galaxy})
+	}
 }
 function readyInteractables(){
 	isLoaded=1
@@ -299,9 +311,15 @@ function readyInteractables(){
 	})
 	highlightGalaxy()
 }
-function drawGalaxy(){
+let galaxyImages=[]
+let galaxiesLoaded=0
+function drawGalaxies(){
 	canvasContext.clearRect(0,0,100000,100000)
-	canvasContext.drawImage(galaxy,galaxyCentre[0]- +galaxyPosition[0]+canvas.width*1.5*scale+112,galaxyCentre[1]- +galaxyPosition[1]+canvas.height*1.5*scale+22)
+	for(let galaxy of galaxyImages){
+		let galaxySprite=galaxy.galaxySprite
+		let galaxyDetails=galaxy.galaxy
+		canvasContext.drawImage(galaxySprite,((galaxySprite.width/2)*-1)- +galaxyPosition[0]+canvas.width*1.5*scale+ +galaxyDetails[1][0],((galaxySprite.height/2)*-1)- +galaxyPosition[1]+canvas.height*1.5*scale+ +galaxyDetails[1][1])
+	}
 	drawMap()
 }
 function drawMap(){
@@ -605,7 +623,7 @@ function cycleDisplay(id){
 	display=displayOptions[displayOptions.indexOf(id)]
 	localStorage.setItem(`display`,display)
 	highlightDisplay()
-	drawGalaxy()
+	drawGalaxies()
 }
 function highlightDisplay(){
 	for(i1=0;i1<displayOptions.length;i1++){
@@ -623,7 +641,7 @@ function cycleOwnership(id){
 	ownership=ownershipOptions[ownershipOptions.indexOf(id)]
 	localStorage.setItem(`ownership`,ownership)
 	highlightOwnership()
-	drawGalaxy()
+	drawGalaxies()
 }
 function highlightOwnership(){
 	for(i1=0;i1<ownershipOptions.length;i1++){
@@ -645,7 +663,7 @@ function cycleGalaxy(id){
 		}
 	}
 	highlightGalaxy()
-	drawGalaxy()
+	drawGalaxies()
 }
 function highlightGalaxy(){
 	for(i1=0;i1<cyclableGalaxies.length;i1++){
@@ -735,7 +753,7 @@ function mouseDown(){
 		}
 		console.log(closestDistances)
 	}
-	drawGalaxy()
+	drawGalaxies()
 }
 var showHotkeys=0
 function toggleHotkeys(){
@@ -829,7 +847,7 @@ var rangeCheck=0
 function toggleRangeCheck(){
 	rangeCheck=!rangeCheck
 	highlightRangeCheck()
-	drawGalaxy()
+	drawGalaxies()
 }
 function highlightRangeCheck(){
 	if(rangeCheck){
@@ -842,7 +860,7 @@ var linklengthCheck=0
 function toggleLinkLengthCheck(){
 	linklengthCheck=!linklengthCheck
 	highlightLinkLengthCheck()
-	drawGalaxy()
+	drawGalaxies()
 }
 function highlightLinkLengthCheck(){
 	if(linklengthCheck){
@@ -879,7 +897,7 @@ function expandSystemSelection(){
 			systemsSelected=[]
 		}
 	}
-	drawGalaxy()
+	drawGalaxies()
 }
 var showTrade=0
 function toggleTrade(){
@@ -941,7 +959,7 @@ function changeZoomLevel(zoomIn){
 	}
 	canvasContext.scale((1/3)/scale,(1/3)/scale)
 	overlayContext.scale((1/3)/scale,(1/3)/scale)
-	drawGalaxy()
+	drawGalaxies()
 }
 //	Shortcuts
 Math.dist=function(x1,y1,x2,y2){
