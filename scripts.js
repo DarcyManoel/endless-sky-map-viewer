@@ -730,9 +730,7 @@ function mouseDown(){
 		}
 	}
 	var canExpand=0
-	closestDistances=[]
 	if(systemsSelected.length){
-		closestDistances.length=systemsSelected.length
 		for(i1=0;i1<systemsSelected.length;i1++){
 			for(i2=0;i2<systems[systemsSelected[i1]][3].length;i2++){
 				for(i3=0;i3<systems.length;i3++){
@@ -750,9 +748,7 @@ function mouseDown(){
 					closestDistance=currentDistance
 				}
 			}
-			closestDistances[i1]=closestDistance
 		}
-		console.log(closestDistances)
 	}
 	drawGalaxies()
 }
