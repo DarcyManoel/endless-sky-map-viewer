@@ -11,12 +11,10 @@
 		<canvas id="canvas"></canvas>
 		<canvas id="overlay"></canvas>
 		<!--	Load	-->
-		<label id="loadFiles" for="file">&#10162; Upload Files</label>
-		<input id="file" class="hiddenPerm" onChange="uploadFiles(this)" type="file" webkitDirectory/>
+		<label id="loadFiles" onclick="importData()">&#10162; Upload Files</label>
 		<!--	Options	-->
 		<div id="optionsMenus" class="hiddenPerm">
-			<div id="options1">
-				<div class="optionsTitle">View Options</div>
+			<div title="View Options">
 				Map Display
 				<hr>
 				<div id="display" class="optionsGroup">
@@ -38,31 +36,7 @@
 					<br>
 				</div>
 			</div>
-			<div id="options2">
-				<div class="optionsTitle">Information</div>
-				Map
-				<hr>
-				<div class="optionsGroup">
-					<label id="systemInformation" class="dark" onclick="toggleSystemInformation()">System Information <sup>I</sup></label>
-					<br>
-					<label id="jumpTargets" class="dark" onclick="toggleRangeCheck()">Jump Targets <sup>J</sup></label>
-					<br>
-				</div>
-				Top Right
-				<hr>
-				<div class="optionsGroup">
-					<label id="linkLength" class="dark" onclick="toggleLinkLengthCheck()">Link Length <sup>L</sup></label>
-					<br>
-				</div>
-				Bottom Left
-				<hr>
-				<div class="optionsGroup">
-					<label id="tradeValues" class="dark" onclick="toggleTrade()">Commodity Trade Values <sup>T</sup></label>
-					<br>
-				</div>
-			</div>
-			<div id="options3">
-				<div class="optionsTitle">Miscellaneous</div>
+			<div title="Miscellaneous">
 				<div class="optionsGroup">
 					<label id="hotkeys" class="dark" onclick="toggleHotkeys()">Hotkeys for Options</label>
 					<br>
@@ -71,10 +45,6 @@
 				</div>
 			</div>
 		</div>
-		<!--	System Details	-->
-		<label id="selectedCount"></label>
-		<label id="selectedHabitation"></label>
-		<label id="systemTrade"></label>
 	</body>
 	<script type="text/javascript" src="scripts.js"></script>
 </html>

@@ -1,13 +1,11 @@
-const canvas=document.getElementById(`canvas`)
+let canvas=document.getElementById(`canvas`)
 	canvas.height=screen.height
 	canvas.width=screen.width
-const canvasContext=canvas.getContext(`2d`)
-const overlay=document.getElementById(`overlay`)
+let canvasContext=canvas.getContext(`2d`)
+let overlay=document.getElementById(`overlay`)
 	overlay.height=screen.height
 	overlay.width=screen.width
-const overlayContext=overlay.getContext(`2d`)
-const galaxy=document.getElementById(`background`)
-const galaxyCentre=[galaxy.width/2*-1,galaxy.height/2*-1]
+let overlayContext=overlay.getContext(`2d`)
 function initialize(){
 	display=localStorage.getItem(`display`)
 	for(i1=0;i1<displayOptions.length;i1++){
@@ -25,283 +23,230 @@ function initialize(){
 	highlightHotkeys()
 	canvasContext.scale((1/3)/scale,(1/3)/scale)
 	overlayContext.scale((1/3)/scale,(1/3)/scale)
-	drawGalaxies()
 }
-var systems=[]
-var governments=[]
-var galaxies=[]
-var wormholes=[]
-var colors=[]
-function uploadFiles(that){
-	var files=event.target.files
-	for(i1=0;i1<files.length;i1++){
-		var systemsReader=new FileReader()
-		systemsReader.readAsText(files[i1])
-		systemsReader.onload=function(e){
-			var output=e.target.result
-			lines=output.split(`\n`)
-			for(i2=0;i2<lines.length;i2++){
-				parseLine:{
-					if(lines[i2].startsWith(`system `)){
-						//	Override
-						for(i3=0;i3<systems.length;i3++){
-							if(lines[i2].slice(7).replaceAll(`"`,``).replaceAll(`\r`,``)==systems[i3][0]){
-								for(i4=i2+1;i4<lines.length,lines[i4].startsWith(`\t`);i4++){
-									defineSystem(1)
-								}
-								break parseLine
-							}
-						}
-						//	Define
-						systems.push([lines[i2].slice(7).replaceAll(`"`,``).replaceAll(`\r`,``),[],[`Unhabitation`],[],[],[],[100],[],[],[]])
-						for(i3=i2+1;i3<lines.length,lines[i3].startsWith(`\t`);i3++){
-							defineSystem(0)
-						}
-						break parseLine
-					}else if(lines[i2].startsWith(`government `)){
-						//	Override
-						for(i3=0;i3<governments.length;i3++){
-							if(lines[i2].slice(11).replaceAll(`"`,``).replaceAll(`\r`,``)==governments[i3][0]){
-								for(i4=i2+1;i4<lines.length,lines[i4].startsWith(`\t`);i4++){
-									defineGovernment()
-								}
-								break parseLine
-							}
-						}
-						//	Define
-						governments.push([lines[i2].slice(11).replaceAll(`"`,``).replaceAll(`\r`,``),[]])
-						for(i3=i2+1;i3<lines.length,lines[i3].startsWith(`\t`);i3++){
-							defineGovernment()
-						}
-						break parseLine
-					}else if(lines[i2].startsWith(`galaxy `)){
-						//	Define
-						galaxies.push([lines[i2].slice(7).replaceAll(` `,``).replaceAll(`"`,``).replaceAll(`\r`,``),[],[]])
-						for(i3=i2+1;i3<lines.length,lines[i3].startsWith(`\t`);i3++){
-							defineGalaxy()
-						}
-						break parseLine
-					}else if(lines[i2].startsWith(`wormhole `)){
-						//	Define
-						wormholes.push([lines[i2].slice(9).replaceAll(`\r`,``),0,[],[]])
-						for(i3=i2+1;i3<lines.length,lines[i3].startsWith(`\t`);i3++){
-							defineWormhole()
-						}
-						break parseLine
-					}else if(lines[i2].startsWith(`color `)){
-						//	Define
-						colors.push(lines[i2].slice(7).replaceAll(`\r`,``).split(`" `))
-						break parseLine
-					}
-				}
-			}
+let dataFiles=[]
+function importData(){
+	let input=document.createElement(`input`)
+	input.type=`file`
+	input.webkitdirectory=true
+	input.multiple=true
+	input.style.display=`none`
+	input.onchange=async event=>{
+		dataFiles=[]
+		for(let file of event.target.files){
+			try{
+				if(!file.name.endsWith(`.txt`)){continue}
+				dataFiles.push(await file.text())
+			}catch{}
+		}
+		parseLinesToTree()
+		curateData()
+	}
+	document.body.appendChild(input)
+	input.click()
+	document.body.removeChild(input)
+}
+let nodes=[]
+function parseLinesToTree(){
+	nodes=[]
+	let stack=[{children:nodes,indent:-1}] // initialize stack with virtual root nodes for hierarchy tracking
+	for(let fileText of dataFiles){
+		let lines=fileText
+			.replace(/#.*$/gm,``) // remove comments since Endless Sky uses `#` for comment lines
+			.split(/\n/) // split text into lines to process sequentially
+		for(let line of lines){
+			if(!line.trim())continue // skip empty or whitespace-only lines since they hold no data
+			let indent=line.match(/^\t*/)[0].length // count leading tabs to determine indentation depth
+			let node={line:line.trim(),children:[]} // create a node object with line content and empty children array
+			while(stack.length&&stack.at(-1).indent>=indent){
+				stack.pop() // remove the most recently stacked node since its indent is too deep to be the parent of the current line
+			} // ensure the stack's top node has an indent smaller than the current line so we attach the node to the correct parent
+			stack.at(-1).children.push(node) // attach current node to the most recent valid parent
+			stack.push({...node,indent}) // push current node onto stack with its indent level to track nesting
 		}
 	}
-	setTimeout(curateData,500)
-	setTimeout(readyInteractables,500)
+	return nodes
 }
-function defineGalaxy(){
-	if(lines[i3].startsWith(`\tpos `)){
-		galaxies[galaxies.length-1][1]=lines[i3].slice(5).replaceAll(`"`,``).replaceAll(`\r`,``).split(` `)
-	}
-	if(lines[i3].startsWith(`\tsprite `)){
-		galaxies[galaxies.length-1][2]=lines[i3].slice(8).replaceAll(`"`,``).replaceAll(`\r`,``).split(`/`).at(-1)
-	}
-}
-function defineSystem(override){
-	if(override){
-		if(lines[i4].startsWith(`\tpos `)){
-			systems[i3][1]=lines[i4].slice(5).replaceAll(`"`,``).replaceAll(`\r`,``).split(` `)
-		}else if(lines[i4].startsWith(`\tgovernment `)){
-			systems[i3][2]=[lines[i4].slice(12).replaceAll(`"`,``).replaceAll(`\r`,``),[]]
-		}else if(lines[i4].startsWith(`\tadd link `)){
-			systems[i3][3].push([lines[i4].slice(10).replaceAll(`"`,``).replaceAll(`\r`,``),[],[]])
-		}else if(lines[i4].startsWith(`\tadd object `)){
-			var segmented=0
-			for(i5=0;i5<systems[i3][4].length;i5++){
-				if(systems[i3][4][i5]==lines[i4].slice(12).replaceAll(`"`,``).replaceAll(`\r`,``)){
-					segmented=1
-				}
-			}
-			if(!segmented){
-				systems[i3][4].push(lines[i4].slice(12).replaceAll(`"`,``).replaceAll(`\r`,``))
-			}
-		}else if(lines[i4].startsWith(`\t"jump range" `)){
-			systems[i3][6]=lines[i4].slice(14).replaceAll(`"`,``).replaceAll(`\r`,``)
-		}
-	}else{
-		if(lines[i3].startsWith(`\tpos `)){
-			systems[systems.length-1][1]=lines[i3].slice(5).replaceAll(`"`,``).replaceAll(`\r`,``).split(` `)
-		}else if(lines[i3].startsWith(`\tgovernment `)){
-			systems[systems.length-1][2]=[lines[i3].slice(12).replaceAll(`"`,``).replaceAll(`\r`,``),[]]
-		}else if(lines[i3].startsWith(`\tlink `)){
-			systems[systems.length-1][3].push([lines[i3].slice(6).replaceAll(`"`,``).replaceAll(`\r`,``),[],[]])
-		}else if(lines[i3].startsWith(`\tobject `)){
-			var segmented=0
-			for(i4=0;i4<systems[systems.length-1][4].length;i4++){
-				if(systems[systems.length-1][4][i4]==lines[i3].slice(8).replaceAll(`"`,``).replaceAll(`\r`,``)){
-					segmented=1
-				}
-			}
-			if(!segmented){
-				systems[systems.length-1][4].push(lines[i3].slice(8).replaceAll(`"`,``).replaceAll(`\r`,``))
-			}
-		}else if(lines[i3].startsWith(`\t\tobject `)){
-			var segmented=0
-			for(i4=0;i4<systems[systems.length-1][4].length;i4++){
-				if(systems[systems.length-1][4][i4]==lines[i3].slice(9).replaceAll(`"`,``).replaceAll(`\r`,``)){
-					segmented=1
-				}
-			}
-			if(!segmented){
-				systems[systems.length-1][4].push(lines[i3].slice(9).replaceAll(`"`,``).replaceAll(`\r`,``))
-			}
-		}else if(lines[i3].startsWith(`\t"jump range" `)){
-			systems[systems.length-1][6]=lines[i3].slice(14).replaceAll(`"`,``).replaceAll(`\r`,``)
-		}else if(lines[i3].startsWith(`\ttrade `)){
-			systems[systems.length-1][9].push(lines[i3].slice(7).replaceAll(`"`,``).replaceAll(`\r`,``))
-		}
-	}
-}
-function defineWormhole(){
-	if(lines[i3].startsWith(`\tmappable`)){
-		wormholes[wormholes.length-1][1]=1
-	}else if(lines[i3].startsWith(`\tlink `)){
-		if(lines[i3].includes(`" `)){
-			wormholes[wormholes.length-1][2].push([lines[i3].slice(6).split(`" `),[]])
-			wormholes[wormholes.length-1][2][wormholes[wormholes.length-1][2].length-1][0][0]=wormholes[wormholes.length-1][2][wormholes[wormholes.length-1][2].length-1][0][0].replaceAll(`"`,``)
-			wormholes[wormholes.length-1][2][wormholes[wormholes.length-1][2].length-1][0][1]=wormholes[wormholes.length-1][2][wormholes[wormholes.length-1][2].length-1][0][1].replaceAll(`"`,``)
-		}else if(lines[i3].includes(` "`)){
-			wormholes[wormholes.length-1][2].push([lines[i3].slice(6).split(` "`),[]])
-			wormholes[wormholes.length-1][2][wormholes[wormholes.length-1][2].length-1][0][0]=wormholes[wormholes.length-1][2][wormholes[wormholes.length-1][2].length-1][0][0].replaceAll(`"`,``)
-			wormholes[wormholes.length-1][2][wormholes[wormholes.length-1][2].length-1][0][1]=wormholes[wormholes.length-1][2][wormholes[wormholes.length-1][2].length-1][0][1].replaceAll(`"`,``)
-		}else{
-			wormholes[wormholes.length-1][2].push([lines[i3].slice(6).split(` `),[]])
-		}
-	}else if(lines[i3].startsWith(`\tcolor `)){
-		wormholes[wormholes.length-1][3]=[lines[i3].slice(7).replaceAll(`"`,``),lines[i3].slice(7).replaceAll(`"`,``)]
-	}
-}
-function defineGovernment(){
-	if(lines[i3].startsWith(`\tcolor `)){
-		if(lines[i3].includes(`governments:`)){
-			for(i5=0;i5<lines.length;i5++){
-				if(lines[i5].startsWith(`color "governments: `+lines[i3].slice(21,-1)+`"`)){
-					var sliceLength=22+lines[i3].slice(21,-1).length
-					governments[governments.length-1][1]=lines[i5].slice(sliceLength).replaceAll(`"`,``).replaceAll(`\r`,``).split(` `)
-				}
-			}
-		}
-		else{
-			governments[governments.length-1][1]=lines[i3].slice(7).replaceAll(`"`,``).replaceAll(`\r`,``).split(` `)
-		}
-	}
-}
-var isLoaded=0
-var cyclableGalaxies=[]
-const tradeTemplate=[`Food`,`Clothing`,`Metal`,`Plastic`,`Equipment`,`Medical`,`Industrial`,`Electronics`,`Heavy Metals`,`Luxury Goods`]
-var tradeAverage=[[`Food`,0,0],[`Clothing`,0,0],[`Metal`,0,0],[`Plastic`,0,0],[`Equipment`,0,0],[`Medical`,0,0],[`Industrial`,0,0],[`Electronics`,0,0],[`Heavy Metals`,0,0],[`Luxury Goods`,0,0]]
+let colours={}
+let governments={}
+let wormholes={}
+let systems={}
 function curateData(){
-	//	Galaxies cyclable
-	cyclableGalaxies=[galaxies.find(galaxy=>galaxy[0]===`MilkyWay`)]
-	for(i1=0;i1<galaxies.length;i1++){
-		var galaxyTooClose=0
-		for(i2=0;i2<cyclableGalaxies.length;i2++){
-			if(Math.dist(cyclableGalaxies[i2][1][0],cyclableGalaxies[i2][1][1],galaxies[i1][1][0],galaxies[i1][1][1])<2000){
-				galaxyTooClose=1
-			}
+	// colours
+	let colourNodes=nodes.filter(node=>node.line.startsWith(`color `))  // select only nodes that define colours
+	for(let colour of colourNodes){
+		let[name,channels]=colour.line // get name of colour and channels for the colour
+			.replace(`color `,``)
+			.replaceAll(`"`,``)
+			.split(/(?<=[A-Za-z\)]) (?=[\d\.])/)
+		colours[name]=channels // add colour key with relevant attributes
+			.split(` `)
+			.map(Number)
+	}
+	// governments
+	let governmentNodes=nodes.filter(node=>node.line.startsWith(`government `))  // select only nodes that define governments
+	for(let government of governmentNodes){
+		let name=government.line // get name of government
+			.replace(`government `,``)
+			.replaceAll(`"`,``)
+		let colourNode=government.children.find(child=>child.line.startsWith(`color `)) // get color node of government
+		if(!colourNode)continue
+		let colour=colourNode.line.endsWith(`"`) // get colour channels of government
+			?colours[colourNode.line // get referenced colour channels from string
+				.replace(`color `,``)
+				.replaceAll(`"`,``)
+			]
+			:colourNode.line // convert colour string into channels array
+				.replace(`color `,``)
+				.split(` `)
+				.map(Number)
+		governments[name]=colour // add government key with relevant attributes
+	}
+	// wormholes
+	let wormholeNodes=nodes.filter(node=>node.line.startsWith(`wormhole `))  // select only nodes that define wormholes
+	for(let wormhole of wormholeNodes){
+		// name
+		let name=wormhole.line // get name of wormhole
+			.replace(`wormhole `,``)
+			.replaceAll(`"`,``)
+		// mappable
+		let mappable=wormhole.children
+			.some(child=>child.line.includes(`mappable`))
+		// links
+		let links=wormhole.children // get link nodes of system
+			.filter(child=>child.line.startsWith(`link `))
+			.map(link=>link.line.replace(`link `,``))
+			.map(link=>{
+				let delimiter=/" "/
+					.test(link)
+						?`" "`
+						:/" /.test(link)
+							?`" `
+							:/ "/.test(link)
+								?` "`
+								:` `
+				return link
+					.split(delimiter)
+					.map(systemName=>systemName.replaceAll(`"`,``))
+			})
+		// colour
+		let colourNode=wormhole.children.find(child=>child.line.startsWith(`color `)) // get color node of wormhole
+		let colour
+		if(colourNode){
+			colour=colourNode.line.endsWith(`"`) // get colour channels of wormhole
+				?colours[colourNode.line // get referenced colour channels from string
+					.replace(`color `,``)
+					.replaceAll(`"`,``)
+				]
+				:colourNode.line // convert colour string into channels array
+					.replace(`color `,``)
+					.split(` `)
+					.map(Number)
+		}else{
+			colour=[.5,.2,.9] // default wormholes colour in Endless Sky
 		}
-		if(!galaxyTooClose){
-			cyclableGalaxies.push(galaxies[i1])
+		//
+		wormholes[name]={
+			mappable,
+			links,
+			colour
 		}
 	}
-	//	Systems local lookup
-	for(i1=0;i1<systems.length;i1++){
-		//	Government
-		for(i2=0;i2<governments.length;i2++){
-			if(systems[i1][2][0]==governments[i2][0]){
-				systems[i1][2][1]=governments[i2][1]
-			}
+	// systems
+	let systemNodes=nodes.filter(node=>node.line.startsWith(`system `))  // select only nodes that define systems
+	for(let system of systemNodes){
+		// name
+		let name=system.line // get name of system
+			.replace(`system `,``)
+			.replaceAll(`"`,``)
+		// position
+		let positionNode=system.children.find(child=>child.line.startsWith(`pos `)) // get pos(ition) node of system
+		let position=positionNode.line
+			.replace(`pos `,``)
+			.split(` `)
+			.map(Number)
+		// colour
+		let governmentNode=system.children.find(child=>child.line.startsWith(`government `)) // get government node of system
+		let government=governmentNode.line
+			.replace(`government `,``)
+			.replaceAll(`"`,``)
+		// links
+		let links=system.children // get link nodes of system
+			.filter(child=>child.line.startsWith(`link `))
+			.map(link=>link.line
+				.replace(`link `,``)
+				.replaceAll(`"`,``)
+			)
+		// planets
+		let planets=system.children // get object nodes of system, excluding wormholes
+			.filter(child=>child.line.startsWith(`object `))
+			.filter(planet=>!planet.children.some(child=>child.line.includes(`wormhole`)))
+		// jump range
+		let jumpRangePresent=system.children
+			.some(child=>child.line.includes(`"jump range" `))
+		let jumpRange=100
+		if(jumpRangePresent){
+			let jumpRangeNode=system.children // get jump range node of system if present
+				.find(child=>child.line.startsWith(`"jump range" `))
+			jumpRange=+jumpRangeNode.line
+				.replace(`"jump range" `,``)
+				.replaceAll(`"`,``)
 		}
-		//	Links
-		for(i2=0;i2<systems[i1][3].length;i2++){
-			for(i3=0;i3<systems.length;i3++){
-				if(systems[i1][3][i2][0]==systems[i3][0]){
-					//	Position
-					systems[i1][3][i2][1]=systems[i3][1]
-					//	Government
-					systems[i1][3][i2][2]=systems[i3][2]
-				}
-			}
-		}
-		//	Objects that are wormholes
-		for(i2=0;i2<systems[i1][4].length;i2++){
-			for(i3=0;i3<wormholes.length;i3++){
-				if(wormholes[i3][0].includes(systems[i1][4][i2])){
-					systems[i1][5].push(systems[i1][4][i2])
-					systems[i1][4].splice(i2,1)
-				}
-			}
-		}
-		//	Systems in range
-		systems[i1][7]=[]
-		for(i2=0;i2<systems.length;i2++){
-			if(Math.dist(systems[i1][1][0],systems[i1][1][1],systems[i2][1][0],systems[i2][1][1])<=systems[i1][6]&&systems[i1][0]!==systems[i2][0]){
-				systems[i1][7].push([systems[i2][0],systems[i2][1]])
-			}
-		}
-		//	Systems with overlapping ranges
-		systems[i1][8]=[]
-		for(i2=0;i2<systems.length;i2++){
-			if(Math.dist(systems[i1][1][0],systems[i1][1][1],systems[i2][1][0],systems[i2][1][1])<=+systems[i1][6]+ +systems[i2][6]&&systems[i1][0]!==systems[i2][0]){
-				systems[i1][8].push([[systems[i2][0],systems[i2][1]],0])
-			}
-		}
-		for(i2=0;i2<systems[i1][8].length;i2++){
-			systems[i1][8][i2][1]=Math.atan2(systems[i1][8][i2][0][1][0]-systems[i1][1][0],systems[i1][8][i2][0][1][1]-systems[i1][1][1])
-		}
-		systems[i1][8].sort((a,b)=>a[1]-b[1])
-		//	Trade Values
-		for(i2=0;i2<systems[i1][9].length;i2++){
-			systems[i1][9][i2]=splitLastOccurrence(systems[i1][9][i2],` `)
-		}
-		systems[i1][9].sort(sortTrade)
-	}
-	//	Wormholes local lookup
-	for(i1=0;i1<wormholes.length;i1++){
-		//	Links
-		for(i2=0;i2<wormholes[i1][2].length;i2++){
-			for(i3=0;i3<systems.length;i3++){
-				if(systems[i3][0]==wormholes[i1][2][i2][0][0]){
-					wormholes[i1][2][i2][1][0]=systems[i3][1]
-				}else if(systems[i3][0]==wormholes[i1][2][i2][0][1]){
-					wormholes[i1][2][i2][1][1]=systems[i3][1]
-				}
-			}
-		}
-		//	Colour
-		for(i2=0;i2<colors.length;i2++){
-			if(wormholes[i1][3][0]==colors[i2][0]){
-				wormholes[i1][3][1]=colors[i2][1]
-			}
+		//
+		systems[name]={ // add system key with relevant attributes
+			position,
+			colour:governments[government],
+			links,
+			planets:planets.length,
+			jumpRange
 		}
 	}
-	//	begin rendering after galaxy images are loaded
-	for(let galaxy of cyclableGalaxies){
+	//
+	loadGalaxies()
+}
+let galaxies=[]
+function loadGalaxies(){
+	let galaxyNodes=nodes // get galaxies in alphabetical order, excluding label galaxies
+		.filter(node=>node.line.startsWith(`galaxy `))
+		.filter(node=>!node.line.includes(`label`))
+		.sort((a,b)=>a.line.localeCompare(b.line))
+	let galaxiesLoaded=0
+	for(let galaxy of galaxyNodes){
+		let galaxyName=galaxy.line // get name of galaxy
+			.replace(`galaxy `,``)
+			.replaceAll(`"`,``)
+		let positionNode=galaxy.children.find(child=>child.line.startsWith(`pos `)) // get position node of galaxy
+		let galaxyPositionLocal=positionNode.line // get coordinates of galaxy
+			.replace(`pos `,``)
+			.split(` `)
+			.map(Number)
+		let spriteNode=galaxy.children.find(child=>child.line.startsWith(`sprite `)) // get sprite node of galaxy
+		let galaxySpriteName=spriteNode.line // get name of galaxy sprite
+			.replaceAll(`"`,``)
+			.split(`/`)
+			.at(-1)
 		let galaxySprite=new Image()
-		galaxySprite.src=`galaxies/${galaxy[2]}.jpg`
-		galaxySprite.onload=function(){
+		galaxySprite.src=`galaxies/${galaxySpriteName}.jpg` // load galaxy sprite from redefined path
+		galaxySprite.onload=function(){ // draw galaxy on canvas after sprite loads
+			galaxies.push({
+				galaxyName,
+				sprite:galaxySprite,
+				position:galaxyPositionLocal
+			})
 			galaxiesLoaded++
-			if(galaxiesLoaded===cyclableGalaxies.length)drawGalaxies()
+			if(galaxiesLoaded===galaxyNodes.length){ // draw systems after final galaxy has been rendered
+				readyInteractables()
+				drawGalaxies()
+			}
 		}
-		galaxyImages.push({galaxySprite,galaxy})
 	}
 }
+let isLoaded=0
 function readyInteractables(){
 	isLoaded=1
 	document.getElementById(`galaxies`).innerHTML=``
-	for(i1=0;i1<cyclableGalaxies.length;i1++){
-		document.getElementById(`galaxies`).innerHTML+=`<label id="`+cyclableGalaxies[i1][0]+`" class="dark" onclick="cycleGalaxy(this.id)">`+cyclableGalaxies[i1][0]+`</label><br>`
+	for(let galaxy of galaxies){
+		document.getElementById(`galaxies`).innerHTML+=`<label id="`+galaxy.galaxyName+`" class="dark" onclick="cycleGalaxy(this.id)">'`+galaxy.galaxyName+`'</label><br>`
 	}
 	document.querySelectorAll(`.blocked`).forEach((element)=>{
 		element.classList.remove(`blocked`)
@@ -311,180 +256,77 @@ function readyInteractables(){
 	})
 	highlightGalaxy()
 }
-let galaxyImages=[]
-let galaxiesLoaded=0
+var galaxySelected=0
+var galaxyPosition=[112,22]
+function cycleGalaxy(id){
+	for(let galaxy of galaxies){
+		if(galaxy.galaxyName===id){
+			galaxySelected=galaxies.indexOf(galaxy)
+			galaxyPosition=galaxy.position
+		}
+	}
+	highlightGalaxy()
+	drawGalaxies()
+}
+function highlightGalaxy(){
+	for(let galaxy of galaxies){
+		document.getElementById(galaxy.galaxyName).classList.add(`dark`)
+	}
+	document.getElementById(galaxies[galaxySelected].galaxyName).classList.remove(`dark`)
+}
 function drawGalaxies(){
-	canvasContext.clearRect(0,0,100000,100000)
-	for(let galaxy of galaxyImages){
-		let galaxySprite=galaxy.galaxySprite
-		let galaxyDetails=galaxy.galaxy
-		canvasContext.drawImage(galaxySprite,((galaxySprite.width/2)*-1)- +galaxyPosition[0]+canvas.width*1.5*scale+ +galaxyDetails[1][0],((galaxySprite.height/2)*-1)- +galaxyPosition[1]+canvas.height*1.5*scale+ +galaxyDetails[1][1])
+	canvasContext.clearRect(0,0,100000,100000) // initialise canvas by clearing entire map draw area
+	for(let galaxy of galaxies){
+		canvasContext.drawImage(
+			galaxy.sprite,
+			((galaxy.sprite.width/2)*-1)-galaxyPosition[0]+canvas.width*1.5*scale+galaxy.position[0],
+			((galaxy.sprite.height/2)*-1)-galaxyPosition[1]+canvas.height*1.5*scale+galaxy.position[1]
+		)
 	}
 	drawMap()
 }
 function drawMap(){
-	for(i1=0;i1<systems.length;i1++){
-		drawSystem(systems[i1][1][0],systems[i1][1][1],systems[i1][2][1],systems[i1][4].length)
-		for(i2=0;i2<systems[i1][3].length;i2++){
-			drawLink(systems[i1][1][0],systems[i1][1][1],systems[i1][3][i2][1][0]-((systems[i1][3][i2][1][0]-systems[i1][1][0])/2),systems[i1][3][i2][1][1]-((systems[i1][3][i2][1][1]-systems[i1][1][1])/2))
+	for(let system of Object.values(systems)){
+		drawSystem(
+			system.position[0],
+			system.position[1],
+			system.colour,
+			system.planets
+		)
+		for(let link of system.links){
+			drawLink(
+				system.position[0],
+				system.position[1],
+				systems[link].position[0]-((systems[link].position[0]-system.position[0])/2),
+				systems[link].position[1]-((systems[link].position[1]-system.position[1])/2),
+				system.colour
+			)
 		}
 	}
-	for(i1=0;i1<wormholes.length;i1++){
-		if(wormholes[i1][1]){
-			for(i2=0;i2<wormholes[i1][2].length;i2++){
-				if(wormholes[i1][3].length){
-					drawWormhole(wormholes[i1][2][i2][1][0][0],wormholes[i1][2][i2][1][0][1],wormholes[i1][2][i2][1][1][0],wormholes[i1][2][i2][1][1][1],wormholes[i1][3][1])
-				}else{
-					drawWormhole(wormholes[i1][2][i2][1][0][0],wormholes[i1][2][i2][1][0][1],wormholes[i1][2][i2][1][1][0],wormholes[i1][2][i2][1][1][1])
-				}
-			}
+	for(let wormhole of Object.values(wormholes)){
+		for(let link of wormhole.links){
+			drawWormhole(
+				systems[link[0]].position[0],
+				systems[link[0]].position[1],
+				systems[link[1]].position[0],
+				systems[link[1]].position[1],
+				wormhole.colour
+			)
 		}
 	}
 	drawOverlay()
 }
 function drawOverlay(){
 	overlayContext.clearRect(0,0,100000,100000)
-	if(rangeCheck){
-		if(target){
-			if(distance<=systems[target][6]){
-				for(i2=0;i2<systems[target][3].length;i2++){
-					drawRangeCheck(systems[target][1][0],systems[target][1][1],systems[target][3][i2][1][0],systems[target][3][i2][1][1],1)
-				}
-				for(i2=0;i2<systems[target][7].length;i2++){
-					if(Math.dist(systems[target][1][0],systems[target][1][1],systems[target][7][i2][1][0],systems[target][7][i2][1][1])<=systems[target][6]){
-						drawRangeCheck(systems[target][1][0],systems[target][1][1],systems[target][7][i2][1][0],systems[target][7][i2][1][1],1)
-					}
-				}
-			}
-		}
-		for(i1=0;i1<systemsSelected.length;i1++){
-			for(i2=0;i2<systems[systemsSelected[i1]][3].length;i2++){
-				drawRangeCheck(systems[systemsSelected[i1]][1][0],systems[systemsSelected[i1]][1][1],systems[systemsSelected[i1]][3][i2][1][0],systems[systemsSelected[i1]][3][i2][1][1],1)
-			}
-			for(i2=0;i2<systems[systemsSelected[i1]][7].length;i2++){
-				if(Math.dist(systems[systemsSelected[i1]][1][0],systems[systemsSelected[i1]][1][1],systems[systemsSelected[i1]][7][i2][1][0],systems[systemsSelected[i1]][7][i2][1][1])<=systems[systemsSelected[i1]][6]){
-					drawRangeCheck(systems[systemsSelected[i1]][1][0],systems[systemsSelected[i1]][1][1],systems[systemsSelected[i1]][7][i2][1][0],systems[systemsSelected[i1]][7][i2][1][1],1)
-				}
-			}
-		}
+	for(let systemName of systemsSelected){
+		drawSelect(systems[systemName].position[0],systems[systemName].position[1])
+		drawRange(systems[systemName].position[0],systems[systemName].position[1],systems[systemName].jumpRange,systems[systemName].colour,systems[systemName].planets)
 	}
-	if(linklengthCheck){
-		drawLinkLengthCore()
-		for(i1=0;i1<systemsSelected.length;i1++){
-			for(i2=0;i2<systems[systemsSelected[i1]][3].length;i2++){
-				drawLinkLengthCheck(systems[systemsSelected[i1]][1][0],systems[systemsSelected[i1]][1][1],systems[systemsSelected[i1]][3][i2][1][0],systems[systemsSelected[i1]][3][i2][1][1],systems[systemsSelected[i1]][3][i2][2][1])
-			}
-		}
-	}
-	if(!rangeCheck){
-		for(i1=0;i1<systemsSelected.length;i1++){
-			drawSelect(systems[systemsSelected[i1]][1][0],systems[systemsSelected[i1]][1][1])
-			drawRange(systems[systemsSelected[i1]][1][0],systems[systemsSelected[i1]][1][1],systems[systemsSelected[i1]][6],systems[systemsSelected[i1]][2][1],systems[systemsSelected[i1]][4].length)
-		}
-		if(target){
-			if(distance<=systems[target][6]){
-				drawRange(systems[target][1][0],systems[target][1][1],systems[target][6],systems[target][2][1],systems[target][4].length)
-				if(showSystemInformation){
-					drawSystemInformation(target)
-				}
-			}
-		}
-	}
-	if(showTrade){
-		drawTrade()
-	}
-	if(showSystemInformation){
-		for(i1=0;i1<systemsSelected.length;i1++){
-			drawSystemInformation(systemsSelected[i1])
-		}
+	if(target&&inRange){
+		drawRange(systems[target].position[0],systems[target].position[1],systems[target].jumpRange,systems[target].colour,systems[target].planets)
 	}
 }
-function drawSystemInformation(system){
-	overlayContext.beginPath()
-	overlayContext.textAlign=`center`
-	overlayContext.font=32*scale+`px Ubuntu`
-	overlayContext.fillStyle=`#9f9f9f`
-	overlayContext.fillText(systems[system][0],canvas.width*1.5*scale+ +systems[system][1][0]-galaxyPosition[0],canvas.height*1.5*scale+ +systems[system][1][1]-galaxyPosition[1]+(40*scale))
-	overlayContext.fillText(systems[system][1].join(`  `),canvas.width*1.5*scale+ +systems[system][1][0]-galaxyPosition[0],canvas.height*1.5*scale+ +systems[system][1][1]-galaxyPosition[1]+(80*scale))
-}
-function drawTrade(){
-	document.getElementById(`selectedCount`).innerHTML=``
-	document.getElementById(`selectedHabitation`).innerHTML=``
-	tradeAverage=[[`Food`,0,``,0],[`Clothing`,0,``,0],[`Metal`,0,``,0],[`Plastic`,0,``,0],[`Equipment`,0,``,0],[`Medical`,0,``,0],[`Industrial`,0,``,0],[`Electronics`,0,``,0],[`Heavy Metals`,0,``,0],[`Luxury Goods`,0,``,0]]
-	document.getElementById(`systemTrade`).innerHTML=``
-	if(systemsSelected.length){
-		for(i1=0;i1<systemsSelected.length;i1++){
-			if(target){
-				for(i2=0;i2<systems[target][9].length;i2++){
-					if(distance<=systems[target][6]&&systems[target][9].length){
-						tradeAverage[i2][1]=systems[target][9][i2][1]
-					}else{
-						tradeAverage[i2][1]=systems[systemsSelected[systemsSelected.length-1]][9][i2][1]
-					}
-				}
-			}
-			for(i2=0;i2<systems[systemsSelected[i1]][9].length;i2++){
-				tradeAverage[i2][3]=tradeAverage[i2][3]+parseInt(systems[systemsSelected[i1]][9][i2][1])
-			}
-		}
-		for(i1=0;i1<tradeAverage.length;i1++){
-			tradeAverage[i1][3]=Math.round((tradeAverage[i1][3]/systemsSelected.length)*100)/100
-			if(tradeAverage[i1][1]>0&&tradeAverage[i1][3]>0){
-				if(tradeAverage[i1][1]>tradeAverage[i1][3]){
-					tradeAverage[i1][2]=`+`+(Math.round((tradeAverage[i1][1]/tradeAverage[i1][3])*100)-100)+`%`
-				}
-				if(tradeAverage[i1][1]<tradeAverage[i1][3]){
-					tradeAverage[i1][2]=`-`+(100-Math.round((tradeAverage[i1][1]/tradeAverage[i1][3])*100))+`%`
-				}
-			}
-		}
-		if(systemsSelected.length>1){
-			var selectedHabitation=0
-			for(i1=0;i1<systemsSelected.length;i1++){
-				if(systems[systemsSelected[i1]][4].length){
-					selectedHabitation++
-				}
-			}
-			document.getElementById(`selectedCount`).innerHTML=systemsSelected.length+` systems selected`
-			document.getElementById(`selectedHabitation`).innerHTML=Math.round(selectedHabitation*100/systemsSelected.length*100)/100+`% Habitation`
-		}else{
-			document.getElementById(`selectedHabitation`).innerHTML=``
-		}
-		document.getElementById(`systemTrade`).innerHTML=
-			`<table>
-				<tr>
-					<th></th>
-					<th title="Cost in target system (hovered or last selected)">TGT</th>
-					<th title="Cost difference % between target system and average of selected systems">DIFF</th>
-					<th title="Average cost in all selected systems">AVG</th>
-				</tr>
-				<tr><td>`+tradeAverage.map(e=>e.join(`</td><td>`)).join('</td></tr><tr><td>')+`</td></tr>
-			</table>`
-	}else{
-		if(target){
-			if(distance<=systems[target][6]){
-				if(systems[target][9].length){
-					document.getElementById(`systemTrade`).innerHTML=`<table><tr><td class="dark">`+systems[target][9].map(e=>e.join(`</td><td class="dark">`)).join('</td></tr><tr><td class="dark">')+`</td></tr></table>`
-				}else{
-					document.getElementById(`systemTrade`).innerHTML=
-						`<table>
-							<tr><td class="dark">Food</td><td class="dark">0</td></tr>
-							<tr><td class="dark">Clothing</td><td class="dark">0</td></tr>
-							<tr><td class="dark">Metal</td><td class="dark">0</td></tr>
-							<tr><td class="dark">Plastic</td><td class="dark">0</td></tr>
-							<tr><td class="dark">Equipment</td><td class="dark">0</td></tr>
-							<tr><td class="dark">Medical</td><td class="dark">0</td></tr>
-							<tr><td class="dark">Industrial</td><td class="dark">0</td></tr>
-							<tr><td class="dark">Electronics</td><td class="dark">0</td></tr>
-							<tr><td class="dark">Heavy Metals</td><td class="dark">0</td></tr>
-							<tr><td class="dark">Luxury Goods</td><td class="dark">0</td></tr>
-						</table>`
-				}
-			}
-		}
-	}
-}
-function drawSystem(x,y,systemGovernment,planetCount){
+function drawSystem(x,y,colour,planetCount){
 	var radius
 	if(display==`original`){
 		radius=9
@@ -496,13 +338,13 @@ function drawSystem(x,y,systemGovernment,planetCount){
 	canvasContext.setLineDash([])
 	canvasContext.lineWidth=3.6
 	if(planetCount>0||ownership==`claims`){
-		canvasContext.strokeStyle=`rgb(`+systemGovernment[0]*255+`,`+systemGovernment[1]*255+`,`+systemGovernment[2]*255+`)`
+		canvasContext.strokeStyle=`rgb(`+colour[0]*255+`,`+colour[1]*255+`,`+colour[2]*255+`)`
 	}else{
 		canvasContext.strokeStyle=`rgb(102,102,102)`
 	}
 	canvasContext.stroke()
 }
-function drawLink(startX,startY,endX,endY,systemGovernment){
+function drawLink(startX,startY,endX,endY,colour){
 	canvasContext.beginPath()
 	canvasContext.moveTo(canvas.width*1.5*scale+ +startX-galaxyPosition[0],canvas.height*1.5*scale+ +startY-galaxyPosition[1])
 	canvasContext.lineTo(canvas.width*1.5*scale+ +endX-galaxyPosition[0],canvas.height*1.5*scale+ +endY-galaxyPosition[1])
@@ -512,13 +354,13 @@ function drawLink(startX,startY,endX,endY,systemGovernment){
 		canvasContext.strokeStyle=`rgb(102,102,102)`
 	}else{
 		canvasContext.setLineDash([])
-		if(systemGovernment){
-			canvasContext.strokeStyle=`rgb(`+systemGovernment[0]*255+`,`+systemGovernment[1]*255+`,`+systemGovernment[2]*255+`)`
+		if(colour){
+			canvasContext.strokeStyle=`rgb(`+colour[0]*255+`,`+colour[1]*255+`,`+colour[2]*255+`)`
 		}
 	}
 	canvasContext.stroke()
 }
-function drawWormhole(startX,startY,endX,endY,color){
+function drawWormhole(startX,startY,endX,endY,colour){
 	canvasContext.beginPath()
 	canvasContext.moveTo(canvas.width*1.5*scale+ +startX-galaxyPosition[0],canvas.height*1.5*scale+ +startY-galaxyPosition[1])
 	canvasContext.lineTo(canvas.width*1.5*scale+ +endX-galaxyPosition[0],canvas.height*1.5*scale+ +endY-galaxyPosition[1])
@@ -529,11 +371,7 @@ function drawWormhole(startX,startY,endX,endY,color){
 		canvasContext.setLineDash([])
 		canvasContext.lineWidth=2
 	}
-	if(color){
-		canvasContext.strokeStyle=`rgba(`+color.split(` `)[0]*255+`,`+color.split(` `)[1]*255+`,`+color.split(` `)[2]*255+`,.5)`
-	}else{
-		canvasContext.strokeStyle=`rgba(128,51,230,.5)`
-	}
+	canvasContext.strokeStyle=`rgba(`+colour[0]*255+`,`+colour[1]*255+`,`+colour[2]*255+`,.5)`
 	canvasContext.stroke()
 	if(display==`original`){
 		canvasContext.beginPath()
@@ -541,11 +379,7 @@ function drawWormhole(startX,startY,endX,endY,color){
 		canvasContext.lineTo(canvas.width*1.5*scale+ +endX-galaxyPosition[0],canvas.height*1.5*scale+ +endY-galaxyPosition[1])
 		canvasContext.setLineDash([0,15,25,10000])
 		canvasContext.lineWidth=4
-		if(color){
-			canvasContext.strokeStyle=`rgb(`+color.split(` `)[0]*255+`,`+color.split(` `)[1]*255+`,`+color.split(` `)[2]*255+`)`
-		}else{
-			canvasContext.strokeStyle=`rgb(128,51,230)`
-		}
+		canvasContext.strokeStyle=`rgb(`+colour[0]*255+`,`+colour[1]*255+`,`+colour[2]*255+`)`
 		canvasContext.stroke()
 	}
 }
@@ -561,61 +395,22 @@ function drawSelect(x,y){
 	overlayContext.strokeStyle=`rgb(255,255,255)`
 	overlayContext.stroke()
 }
-function drawRange(x,y,range,systemGovernment,planetCount){
+function drawRange(x,y,jumpRange,colour,planetCount){
 	overlayContext.beginPath()
 	overlayContext.setLineDash([])
 	overlayContext.lineWidth=1
-	overlayContext.arc(canvas.width*1.5*scale+ +x-galaxyPosition[0],canvas.height*1.5*scale+ +y-galaxyPosition[1],range,0,2*Math.PI)
+	overlayContext.arc(canvas.width*1.5*scale+ +x-galaxyPosition[0],canvas.height*1.5*scale+ +y-galaxyPosition[1],jumpRange,0,2*Math.PI)
 	if(display==`original`){
 		overlayContext.strokeStyle=`rgb(102,102,102)`
 		overlayContext.stroke()
 	}else{
 		if(planetCount>0||ownership==`claims`){
-			overlayContext.fillStyle=`rgba(`+systemGovernment[0]*255+`,`+systemGovernment[1]*255+`,`+systemGovernment[2]*255+`,.1)`
+			overlayContext.fillStyle=`rgba(`+colour[0]*255+`,`+colour[1]*255+`,`+colour[2]*255+`,.1)`
 		}else{
 			overlayContext.fillStyle=`rgba(102,102,102,.1)`
 		}
 		overlayContext.fill()
 	}
-}
-function drawLinkLengthCore(){
-	overlayContext.beginPath()
-	overlayContext.arc(4100*scale,200*scale,9*scale,0,2*Math.PI)
-	overlayContext.setLineDash([])
-	overlayContext.lineWidth=3.6*scale
-	overlayContext.strokeStyle=`rgb(102,102,102)`
-	overlayContext.stroke()
-	overlayContext.beginPath()
-	overlayContext.arc(4100*scale,200*scale,100*scale,0,2*Math.PI)
-	overlayContext.setLineDash([])
-	overlayContext.lineWidth=1*scale
-	overlayContext.strokeStyle=`rgb(102,102,102)`
-	overlayContext.stroke()
-}
-function drawLinkLengthCheck(startX,startY,endX,endY,systemGovernment){
-	overlayContext.beginPath()
-	overlayContext.arc((endX-startX+4100)*scale,(endY-startY+200)*scale,1*scale,0,2*Math.PI)
-	overlayContext.setLineDash([])
-	overlayContext.lineWidth=3.6*scale
-	if(systemGovernment){
-		overlayContext.strokeStyle=`rgb(`+systemGovernment[0]*255+`,`+systemGovernment[1]*255+`,`+systemGovernment[2]*255+`)`
-	}else{
-		overlayContext.strokeStyle=`rgb(102,102,102)`
-	}
-	overlayContext.stroke()
-}
-function drawRangeCheck(startX,startY,endX,endY,lineWidth){
-	overlayContext.beginPath()
-	overlayContext.moveTo(canvas.width*1.5*scale+ +startX-galaxyPosition[0],canvas.height*1.5*scale+ +startY-galaxyPosition[1])
-	overlayContext.lineTo(canvas.width*1.5*scale+ +endX-galaxyPosition[0],canvas.height*1.5*scale+ +endY-galaxyPosition[1])
-	overlayContext.setLineDash([])
-	if(lineWidth){
-		overlayContext.lineWidth=lineWidth
-	}else{
-		overlayContext.lineWidth=.5
-	}
-	overlayContext.strokeStyle=`rgb(0,255,0)`
-	overlayContext.stroke()
 }
 const displayOptions=[`original`,`modern`]
 var display=displayOptions[0]
@@ -653,104 +448,52 @@ function highlightOwnership(){
 		document.getElementById(`claims`).classList.remove(`dark`)
 	}
 }
-var galaxySelected=0
-var galaxyPosition=[112,22]
-function cycleGalaxy(id){
-	for(i1=0;i1<cyclableGalaxies.length;i1++){
-		if(cyclableGalaxies[i1][0]==id){
-			galaxySelected=i1
-			galaxyPosition=cyclableGalaxies[i1][1]
-		}
-	}
-	highlightGalaxy()
-	drawGalaxies()
-}
-function highlightGalaxy(){
-	for(i1=0;i1<cyclableGalaxies.length;i1++){
-		document.getElementById(cyclableGalaxies[i1][0]).classList.add(`dark`)
-	}
-	document.getElementById(cyclableGalaxies[galaxySelected][0]).classList.remove(`dark`)
-}
-var xCoordinate
-var yCoordinate
-var distance
-var targetPrev=0
-var target=0
-var inRangePrev=0
-var inRange=0
+let xCoordinate
+let yCoordinate
+let distance
+let target
+let targetPrev
+let inRange
+let inRangePrev
 document.addEventListener(`mousemove`,mouseMove)
 function mouseMove(event){
-	if(isBlockedInteraction){
+	if(isBlockedInteraction||!isLoaded){
 		return
 	}
 	let rect=canvas.getBoundingClientRect() // get canvas position and size in CSS pixels
 	xCoordinate=Math.round(((event.clientX-rect.left)*(canvas.width*3/rect.width)-canvas.width*1.5)*scale) // convert cursor X from CSS pixels to canvas space
 	yCoordinate=Math.round(((event.clientY-rect.top)*(canvas.height*3/rect.height)-canvas.height*1.5)*scale) // convert cursor Y from CSS pixels to canvas space
-	for(i1=0;i1<systems.length;i1++){
-		if(Math.dist(systems[i1][1][0]-galaxyPosition[0],systems[i1][1][1]-galaxyPosition[1],xCoordinate,yCoordinate)<distance||i1==0){
-			target=i1
-			distance=Math.dist(systems[i1][1][0]-galaxyPosition[0],systems[i1][1][1]-galaxyPosition[1],xCoordinate,yCoordinate)
+	distance=undefined
+	for(let[systemName,system]of Object.entries(systems)){
+		if(Math.dist(system.position[0]-galaxyPosition[0],system.position[1]-galaxyPosition[1],xCoordinate,yCoordinate)<distance||!distance){
+			target=systemName
+			distance=Math.dist(system.position[0]-galaxyPosition[0],system.position[1]-galaxyPosition[1],xCoordinate,yCoordinate)
 		}
 	}
-	inRangePrev=inRange
-	if(target){
-		if(distance>systems[target][6]){
-			inRange=0
-		}else{
-			inRange=1
-		}
+	inRange=undefined
+	if(distance<=systems[target].jumpRange){
+		inRange=1
 	}
-	if(inRange!==inRangePrev||(inRange&&target!==targetPrev)){
+	if(inRange!==inRangePrev||target!==targetPrev){
 		targetPrev=target
+		inRangePrev=inRange
 		drawOverlay()
 	}
 }
-var lastSelected
-var closestDistances
-var closestDistance
 document.addEventListener(`mousedown`,mouseDown)
 function mouseDown(){
 	if(isBlockedInteraction){
 		return
 	}
 	if(target){
-		if(distance<=systems[target][6]){
-			var spliced=0
-			for(i1=0;i1<systemsSelected.length;i1++){
-				if(systemsSelected[i1]==target){
-					systemsSelected.splice(i1,1)
-					spliced=1
-					break
-				}
-			}
-			if(!spliced){
-				systemsSelected.push(target)
-				lastSelected=target
-			}
+		if(distance<=systems[target].jumpRange){
+			systemsSelected=systemsSelected
+				.includes(target)
+					?systemsSelected.filter(item=>item!==target)
+					:[...systemsSelected,target]
 		}
 	}
-	var canExpand=0
-	if(systemsSelected.length){
-		for(i1=0;i1<systemsSelected.length;i1++){
-			for(i2=0;i2<systems[systemsSelected[i1]][3].length;i2++){
-				for(i3=0;i3<systems.length;i3++){
-					if(systems[i3][0]==systems[systemsSelected[i1]][3][i2][0]){
-						if(!systemsSelected.includes(i3)){
-							canExpand=1
-						}
-					}
-				}
-			}
-			closestDistance=100000
-			for(i2=0;i2<systemsSelected.length;i2++){
-				currentDistance=Math.dist(systems[systemsSelected[i1]][1][0],systems[systemsSelected[i1]][1][1],systems[systemsSelected[i2]][1][0],systems[systemsSelected[i2]][1][1])
-				if(currentDistance<closestDistance){
-					closestDistance=currentDistance
-				}
-			}
-		}
-	}
-	drawGalaxies()
+	drawOverlay()
 }
 var showHotkeys=0
 function toggleHotkeys(){
@@ -782,20 +525,8 @@ function keyDown(event){
 				toggleOptionsMenu(1)
 			}
 			if(showHotkeys){
-				if(event.keyCode==73){		//	I
-					toggleSystemInformation()
-				}
-				if(event.keyCode==74){		//	J
-					toggleRangeCheck()
-				}
-				if(event.keyCode==76){		//	L
-					toggleLinkLengthCheck()
-				}
 				if(event.keyCode==83){		//	S
 					expandSystemSelection()
-				}
-				if(event.keyCode==84){		//	T
-					toggleTrade()
 				}
 				if(event.keyCode==187){		//	+
 					changeZoomLevel(1)
@@ -827,66 +558,23 @@ function toggleOptionsMenu(call){
 		isBlockedInteraction=0
 	}
 }
-var showSystemInformation=0
-function toggleSystemInformation(){
-	showSystemInformation=!showSystemInformation
-	highlightSystemInformation()
-	drawOverlay()
-}
-function highlightSystemInformation(){
-	if(showSystemInformation){
-		document.getElementById(`systemInformation`).classList.remove(`dark`)
-	}else{
-		document.getElementById(`systemInformation`).classList.add(`dark`)
-	}
-}
-var rangeCheck=0
-function toggleRangeCheck(){
-	rangeCheck=!rangeCheck
-	highlightRangeCheck()
-	drawGalaxies()
-}
-function highlightRangeCheck(){
-	if(rangeCheck){
-		document.getElementById(`jumpTargets`).classList.remove(`dark`)
-	}else{
-		document.getElementById(`jumpTargets`).classList.add(`dark`)
-	}
-}
-var linklengthCheck=0
-function toggleLinkLengthCheck(){
-	linklengthCheck=!linklengthCheck
-	highlightLinkLengthCheck()
-	drawGalaxies()
-}
-function highlightLinkLengthCheck(){
-	if(linklengthCheck){
-		document.getElementById(`linkLength`).classList.remove(`dark`)
-	}else{
-		document.getElementById(`linkLength`).classList.add(`dark`)
-	}
-}
 var systemsSelected=[]
 function expandSystemSelection(){
 	var expanded=0
 	if(systemsSelected.length){
-		for(i1=0;i1<systemsSelected.length;i1++){
-			for(i2=0;i2<systems[systemsSelected[i1]][3].length;i2++){
-				for(i3=0;i3<systems.length;i3++){
-					if(systems[i3][0]==systems[systemsSelected[i1]][3][i2][0]){
-						if(!systemsSelected.includes(i3)){
-							expanded=1
-							systemsSelected.push(i3)
-						}
-					}
+		for(let systemName of systemsSelected){
+			for(let link of systems[systemName].links){
+				if(!systemsSelected.includes(link)){
+					expanded=1
+					systemsSelected.push(link)
 				}
 			}
 		}
 	}
 	else{
-		for(i1=0;i1<systems.length;i1++){
+		for(let systemName of Object.keys(systems)){
 			expanded=1
-			systemsSelected.push(i1)
+			systemsSelected.push(systemName)
 		}
 	}
 	if(systemsSelected.length){
@@ -895,22 +583,6 @@ function expandSystemSelection(){
 		}
 	}
 	drawGalaxies()
-}
-var showTrade=0
-function toggleTrade(){
-	showTrade=!showTrade
-	highlightTrade()
-	document.getElementById(`systemTrade`).innerHTML=``
-	if(showTrade){
-		drawTrade()
-	}
-}
-function highlightTrade(){
-	if(showTrade){
-		document.getElementById(`tradeValues`).classList.remove(`dark`)
-	}else{
-		document.getElementById(`tradeValues`).classList.add(`dark`)
-	}
 }
 //	11.2x diff between min & max zoom
 //	From 4x in to 2.8x out from default
@@ -961,13 +633,4 @@ function changeZoomLevel(zoomIn){
 //	Shortcuts
 Math.dist=function(x1,y1,x2,y2){
 	return Math.sqrt((+x2-+x1)*(+x2-+x1)+(+y2-+y1)*(+y2-+y1))
-}
-function splitLastOccurrence(string,substring) {
-	var lastIndex=string.lastIndexOf(substring)
-	var before=string.slice(0,lastIndex)
-	var after=string.slice(lastIndex+1)
-	return[before,after]
-}
-function sortTrade(a,b) {
-	return tradeTemplate.indexOf(a[0])-tradeTemplate.indexOf(b[0])
 }

@@ -1,5 +1,6 @@
 *{
 	-webkit-user-select:none;
+	box-sizing:border-box;
 	color:#9f9f9f;
 	margin:0;
 	outline:none;
@@ -41,7 +42,7 @@ label{
 	color:#555;
 }
 .hiddenPerm,.hiddenTemp{
-	display:none;
+	display:none!important;
 }
 #loadFiles{
 	font-size:32px;
@@ -54,38 +55,26 @@ label{
 /*	Options	*/
 #optionsMenus{
 	background:rgba(0,0,0,.6);
+	display:flex;
+	gap:40px;
 	height:100%;
+	padding:40px;
 	position:absolute;
 	width:100%;
-	z-index:100;
-}
-#options1,#options2,#options3{
-	backdrop-filter:blur(10px);
-	background-color:rgba(255,255,255,.1);
-	border-radius:30px;
-	height:calc(100% - 140px);
-	padding:10px;
-	padding-top:60px;
-	position:absolute;
-	top:40px;
-	width:calc(33% - 100px);
-}
-#options1{
-	left:80px;
-}
-#options2{
-	left:50%;
-	transform:translate(-50%);
-}
-#options3{
-	right:80px;
-}
-.optionsTitle{
-	font-size:32px;
-	left:50%;
-	position:absolute;
-	top:10px;
-	transform:translate(-50%);
+	z-index:1;
+	>div{
+		flex:1;
+		backdrop-filter:blur(10px);
+		background-color:rgba(255,255,255,.1);
+		border-radius:30px;
+		padding:10px;
+	}
+	>div:before{
+		content:attr(title);
+		display:block;
+		font-size:2em;
+		padding:.5rem;
+	}
 }
 .optionsGroup{
 	padding:5px 0 10px 20px;
@@ -110,54 +99,13 @@ label{
 	left:14px;
 	position:absolute;
 }
-.descriptor{
-	color:inherit;
-	pointer-events:none;
-	position:absolute;
-	right:220px;
-	text-align:right;
-	top:10px;
-	transition:opacity .5s linear 1s;
-	width:1000px;
-}
-.hotkeyIndicator .descriptor{
-	opacity:0;
-}
-.hotkeyIndicator:hover .descriptor{
-	opacity:1;
-	transition:opacity .5s;
-}
-.activeMode{
-	border:3px solid #9f9f9f;
-	color:#9f9f9f;
-}
-/*	System Details	*/
-#selectedCount{
-	left:20px;
-	top:130px;
-}
-#selectedHabitation{
-	left:20px;
-	top:160px;
-}
-#systemTrade{
-	left:20px;
-	bottom:20px;
-}
-table{
-	border-spacing:0;
-	font-size:80%;
-}
-td{
-	min-width:40px;
-	padding-right:15px;
-}
-th{
-	text-align:left;
-}
 /*	Animations	*/
 /*		Blur	*/
 @keyframes blurOff{
-	0%{filter:blur(3px);}
-	100%{filter:blur(0px);}
+	0%{
+		filter:blur(3px);
+	}
+	100%{
+		filter:blur(0px);
+	}
 }
